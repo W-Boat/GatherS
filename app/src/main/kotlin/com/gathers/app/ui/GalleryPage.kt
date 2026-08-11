@@ -142,7 +142,8 @@ fun GalleryPage(
                 s.stateTags.contains(filterTag) ||
                 s.visualTags.contains(filterTag)
             val lowOk = !filterLowValue || s.isLowValue
-            val timeOk = timeFilter.days == null || s.takenAt >= now - timeFilter.days * 86_400_000L
+            val filterDays = timeFilter.days
+            val timeOk = filterDays == null || s.takenAt >= now - filterDays * 86_400_000L
             val clarityOk = when (clarityFilter) {
                 ClarityFilter.ALL -> true
                 ClarityFilter.CLEAR -> s.blurScore < 0 || s.blurScore < 40
