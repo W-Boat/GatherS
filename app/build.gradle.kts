@@ -14,7 +14,7 @@ kotlin {
 
 android {
     namespace = "com.gathers.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.gathers.app"

@@ -110,8 +110,8 @@ object Tagger {
         val monthDay = "%d月%d日".format(cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
         val namePart = displayName.substringBeforeLast('.').take(14)
         return when {
-            content != null -> "$sourceApp$content截图 · $monthDay"
-            else -> "$sourceApp截图 · $namePart".take(20)
+            content != null -> "${sourceApp}${content}截图 · $monthDay"
+            else -> "${sourceApp}截图 · $namePart".take(20)
         }
     }
 
