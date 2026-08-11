@@ -2,7 +2,10 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
   pull_request:
   workflow_dispatch:
 
@@ -22,12 +25,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Ensure Android SDK 36
+      - name: Ensure Android SDK 37
         run: |
           if command -v sdkmanager >/dev/null 2>&1; then
-            yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+            yes | sdkmanager "platforms;android-37" "build-tools;37.0.0" || true
           elif [ -n "$ANDROID_HOME" ] && [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0" || true
           fi
 
       - name: Build debug APK
