@@ -21,6 +21,7 @@ data class TrashEntry(
     val relativePath: String,
     val sizeBytes: Long,
     val trashedAt: Long,
+    val mimeType: String = "image/png",
 )
 
 /**
@@ -53,6 +54,7 @@ object TrashManager {
                             relativePath = o.getString("relativePath"),
                             sizeBytes = o.optLong("sizeBytes", 0),
                             trashedAt = o.optLong("trashedAt", System.currentTimeMillis()),
+                            mimeType = o.optString("mimeType", "image/png"),
                         ),
                     )
                 }
@@ -70,6 +72,7 @@ object TrashManager {
                     put("relativePath", e.relativePath)
                     put("sizeBytes", e.sizeBytes)
                     put("trashedAt", e.trashedAt)
+                    put("mimeType", e.mimeType)
                 },
             )
         }
@@ -104,6 +107,7 @@ object TrashManager {
                 relativePath = screenshot.relativePath,
                 sizeBytes = screenshot.sizeBytes,
                 trashedAt = System.currentTimeMillis(),
+                mimeType = screenshot.mimeType,
             )
             val entries = loadIndex(context).filterNot { it.mediaId == entry.mediaId } + entry
             saveIndex(context, entries)
@@ -138,7 +142,7 @@ object TrashManager {
                 ?: return@withContext false
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, entry.fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.MIME_TYPE, entry.mimeType)
                 put(MediaStore.Images.Media.RELATIVE_PATH, entry.relativePath.ifBlank { "Pictures/Screenshots" })
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }

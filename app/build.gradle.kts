@@ -24,12 +24,6 @@ android {
         versionName = "0.1.0"
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -40,6 +34,7 @@ dependencies {
     // Miuix — 组件库（Compose Multiplatform / MIUI 风格）
     implementation(libs.miuix.ui)
     implementation(libs.miuix.icons)
+    implementation(libs.miuix.preference)
 
     // Compose Multiplatform 运行时（与 miuix 0.9.3 内部依赖一致）
     implementation(libs.compose.foundation)

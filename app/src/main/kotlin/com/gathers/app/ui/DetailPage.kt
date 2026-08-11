@@ -100,6 +100,7 @@ fun DetailPage(
             scope.launch { snackbarHostState.showSnackbar("已移入回收站") }
             onBack()
         } else {
+            if (shot != null) repo.onTrashCancelled(context, shot.id)
             scope.launch { snackbarHostState.showSnackbar("已取消") }
         }
     }

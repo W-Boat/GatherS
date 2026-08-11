@@ -4,13 +4,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -25,8 +22,6 @@ data class UserMeta(
 
 /** 截图库仓库：扫描 MediaStore、维护索引、持久化用户状态 */
 class ScreenshotRepository private constructor() {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _screenshots = MutableStateFlow<List<Screenshot>>(emptyList())
     val screenshots: StateFlow<List<Screenshot>> = _screenshots.asStateFlow()
@@ -256,16 +251,17 @@ class ScreenshotRepository private constructor() {
     suspend fun moveManyToTrash(context: Context, shots: List<Screenshot>): PendingIntent? {
         if (shots.isEmpty()) return null
         var resultPi: PendingIntent? = null
+        val copiedUris = mutableListOf<Uri>()
         withContext(Dispatchers.IO) {
             shots.forEach { s ->
                 val entry = TrashManager.copyToTrash(context, s)
-                if (entry != null) {
-                    val pi = TrashManager.buildDeletePendingIntent(context, listOf(s.uri))
-                    if (pi != null) resultPi = pi
-                }
+                if (entry != null) copiedUris.add(s.uri)
             }
         }
         _trashEntries.value = TrashManager.loadIndex(context)
+        if (copiedUris.isNotEmpty()) {
+            resultPi = TrashManager.buildDeletePendingIntent(context, copiedUris)
+        }
         if (resultPi == null) {
             // 设备无法删除原图：撤销全部副本
             shots.forEach { TrashManager.cancelTrash(context, it.id) }

@@ -74,7 +74,7 @@ fun GalleryPage(
     var filterTag by rememberSaveable { mutableStateOf<String?>(null) }
     var filterLowValue by rememberSaveable { mutableStateOf(false) }
     var selectionMode by rememberSaveable { mutableStateOf(false) }
-    var selectedIds by rememberSaveable { mutableStateOf(setOf<Long>()) }
+    var selectedIds by rememberSaveable { mutableStateOf(listOf<Long>()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     var pendingTrashIds by remember { mutableStateOf(listOf<Long>()) }
@@ -82,7 +82,7 @@ fun GalleryPage(
 
     fun exitSelection() {
         selectionMode = false
-        selectedIds = emptySet()
+        selectedIds = emptyList()
     }
 
     val trashLauncher = rememberLauncherForActivityResult(
@@ -310,7 +310,7 @@ fun GalleryPage(
                         },
                         onLongClick = {
                             selectionMode = true
-                            selectedIds = setOf(shot.id)
+                            selectedIds = listOf(shot.id)
                         },
                     )
                 }
@@ -362,7 +362,6 @@ private fun GridItem(
             uri = shot.uri,
             modifier = Modifier.fillMaxSize(),
             contentDescription = shot.displayName,
-            maxDim = 512,
         )
         if (selectionMode) {
             Box(

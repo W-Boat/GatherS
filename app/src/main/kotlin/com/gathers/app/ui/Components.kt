@@ -42,7 +42,7 @@ fun ThumbnailImage(
     uri: Uri,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
-    maxDim: Int = 512,
+    maxDim: Int = 160,
 ) {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(initialValue = null, key1 = uri) {
