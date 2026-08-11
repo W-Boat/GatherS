@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 读取媒体库截图：Android 13+ 用细粒度权限，旧版本用存储权限 -->
+    <!-- 读取媒体库截图：Android 13+ 用细粒度权限（14+ 支持"选择照片"部分授权），旧版本用存储权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

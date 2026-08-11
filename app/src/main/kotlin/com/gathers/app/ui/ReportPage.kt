@@ -158,7 +158,6 @@ fun ReportPage(
                             Text(
                                 text = if (count > 0) count.toString() else "",
                                 color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Box(
@@ -174,7 +173,6 @@ fun ReportPage(
                             Text(
                                 text = day.substringAfter('-'),
                                 color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
                             )
                         }
                     }
@@ -228,11 +226,11 @@ fun ReportPage(
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Text("0时", color = MiuixTheme.colorScheme.onSurfaceSecondary, fontSize = androidx.compose.ui.unit.TextUnit.Unspecified)
+                    Text("0时", color = MiuixTheme.colorScheme.onSurfaceSecondary)
                     Spacer(modifier = Modifier.weight(1f))
-                    Text("12时", color = MiuixTheme.colorScheme.onSurfaceSecondary, fontSize = androidx.compose.ui.unit.TextUnit.Unspecified)
+                    Text("12时", color = MiuixTheme.colorScheme.onSurfaceSecondary)
                     Spacer(modifier = Modifier.weight(1f))
-                    Text("23时", color = MiuixTheme.colorScheme.onSurfaceSecondary, fontSize = androidx.compose.ui.unit.TextUnit.Unspecified)
+                    Text("23时", color = MiuixTheme.colorScheme.onSurfaceSecondary)
                 }
                 val hot = data.hourlyHeat.mapIndexed { h, c -> h to c }
                     .filter { it.second > 0 }
@@ -243,7 +241,6 @@ fun ReportPage(
                     Text(
                         text = hot.joinToString("  ") { (h, c) -> "%02d:00 ×%d".format(h, c) },
                         color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                        fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
                     )
                 }
             }

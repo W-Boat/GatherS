@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.gathers.app.data.Screenshot
 import com.gathers.app.data.ScreenshotRepository
@@ -43,6 +41,7 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
@@ -67,6 +66,7 @@ fun DetailPage(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showNoteEditor by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf(screenshot.userNote) }
+    var noteExpanded by remember { mutableStateOf(true) }
     var computedBlur by remember { mutableStateOf(screenshot.blurScore) }
 
     // 进入页面时若未计算过模糊度则计算一次
@@ -281,28 +281,15 @@ fun DetailPage(
             summary = "为这张截图添加自定义备注",
             onDismissRequest = { showNoteEditor = false },
             content = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MiuixTheme.colorScheme.surfaceContainer, RoundedCornerShape(10.dp))
-                        .padding(10.dp),
-                ) {
-                    BasicTextField(
-                        value = noteText,
-                        onValueChange = { noteText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = TextStyle(color = MiuixTheme.colorScheme.onSurface),
-                        decorationBox = { inner ->
-                            if (noteText.isEmpty()) {
-                                Text(
-                                    text = "例如：本月房租账单",
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                )
-                            }
-                            inner()
-                        },
-                    )
-                }
+                InputField(
+                    query = noteText,
+                    onQueryChange = { noteText = it },
+                    onSearch = {},
+                    expanded = noteExpanded,
+                    onExpandedChange = { noteExpanded = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "例如：本月房租账单",
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween) {
                     TextButton(

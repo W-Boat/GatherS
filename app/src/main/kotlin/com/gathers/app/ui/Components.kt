@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -34,6 +35,8 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Image
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 异步加载缩略图（内置 BitmapFactory 采样解码，无第三方库） */
@@ -63,10 +66,18 @@ fun ThumbnailImage(
             modifier = modifier.background(MiuixTheme.colorScheme.surfaceContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "…",
-                color = MiuixTheme.colorScheme.onSurfaceSecondary,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                androidx.compose.foundation.Image(
+                    imageVector = MiuixIcons.Image,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "无法加载",
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+            }
         }
     }
 }

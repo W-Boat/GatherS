@@ -3,6 +3,7 @@ package com.gathers.app.data
 import android.app.PendingIntent
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,18 +139,24 @@ class ScreenshotRepository private constructor() {
     }
 
     private fun scanMediaStore(context: Context): List<Screenshot> {
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.RELATIVE_PATH,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_MODIFIED,
-            MediaStore.Images.Media.MIME_TYPE,
-        )
-        // 关键词筛选：截图类命名 / 截图目录
+        val useRelativePath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        val projection = buildList {
+            add(MediaStore.Images.Media._ID)
+            add(MediaStore.Images.Media.DISPLAY_NAME)
+            add(MediaStore.Images.Media.SIZE)
+            add(MediaStore.Images.Media.WIDTH)
+            add(MediaStore.Images.Media.HEIGHT)
+            add(MediaStore.Images.Media.DATE_TAKEN)
+            add(MediaStore.Images.Media.DATE_MODIFIED)
+            add(MediaStore.Images.Media.MIME_TYPE)
+            add(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+            if (useRelativePath) {
+                add(MediaStore.Images.Media.RELATIVE_PATH)
+            } else {
+                add(MediaStore.Images.Media.DATA)
+            }
+        }.toTypedArray()
+        // 关键词筛选：截图类命名 / 截图目录（RELATIVE_PATH 仅 Android 10+ 可用）
         val selection =
             "(" +
                 "DISPLAY_NAME LIKE '%screenshot%' OR " +
@@ -157,9 +164,16 @@ class ScreenshotRepository private constructor() {
                 "DISPLAY_NAME LIKE '%scrn%' OR " +
                 "DISPLAY_NAME LIKE '%screen_capture%' OR " +
                 "DISPLAY_NAME LIKE '%截屏%' OR " +
-                "RELATIVE_PATH LIKE '%Screenshot%' OR " +
-                "RELATIVE_PATH LIKE '%截图%' OR " +
-                "RELATIVE_PATH LIKE '%ScreenCapture%'" +
+                (if (useRelativePath) {
+                    "RELATIVE_PATH LIKE '%Screenshot%' OR " +
+                        "RELATIVE_PATH LIKE '%截图%' OR " +
+                        "RELATIVE_PATH LIKE '%ScreenCapture%' OR "
+                } else {
+                    "BUCKET_DISPLAY_NAME LIKE '%Screenshot%' OR " +
+                        "BUCKET_DISPLAY_NAME LIKE '%截图%' OR " +
+                        "BUCKET_DISPLAY_NAME LIKE '%ScreenCapture%' OR "
+                }) +
+                "BUCKET_DISPLAY_NAME LIKE '%截屏%'" +
                 ") AND " +
                 "BUCKET_DISPLAY_NAME NOT LIKE '%Camera%'"
         val trashIds = _trashEntries.value.map { it.mediaId }.toSet()
@@ -175,7 +189,7 @@ class ScreenshotRepository private constructor() {
             )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
+                val bucketCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
                 val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
                 val widthCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
                 val heightCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -186,7 +200,18 @@ class ScreenshotRepository private constructor() {
                     val id = cursor.getLong(idCol)
                     if (id in trashIds) continue
                     val name = cursor.getString(nameCol) ?: continue
-                    val relPath = cursor.getString(pathCol) ?: ""
+                    // Android 10+ 用 RELATIVE_PATH；旧版本用 DATA 父目录名近似
+                    val relPath = if (useRelativePath) {
+                        cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)) ?: ""
+                    } else {
+                        val data = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA))
+                        if (!data.isNullOrBlank()) {
+                            val parent = java.io.File(data).parentFile?.name
+                            "Pictures/" + (parent ?: "")
+                        } else {
+                            cursor.getString(bucketCol) ?: ""
+                        }
+                    }
                     val taken = cursor.getLong(takenCol)
                     val modified = cursor.getLong(modCol)
                     val takenAt = if (taken > 0) taken else modified * 1000L

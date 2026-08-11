@@ -25,10 +25,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,16 +35,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gathers.app.data.Screenshot
 import com.gathers.app.data.ScreenshotRepository
-import com.gathers.app.util.formatRelative
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -56,7 +53,23 @@ import top.yukonga.miuix.kmp.icon.extended.*
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 截图库：搜索 / 筛选 / 网格多选 / 回收站与删除 */
+/** 时间范围筛选 */
+enum class TimeFilter(val label: String, val days: Long?) {
+    ALL("全部", null),
+    TODAY("今天", 1),
+    WEEK("近7天", 7),
+    MONTH("近30天", 30),
+    YEAR("今年", 365),
+}
+
+/** 清晰度筛选 */
+enum class ClarityFilter(val label: String) {
+    ALL("全部"),
+    CLEAR("清晰"),
+    BLUR("模糊"),
+}
+
+/** 截图库：搜索 / 组合筛选 / 网格多选 / 回收站与删除 */
 @Composable
 fun GalleryPage(
     padding: PaddingValues,
@@ -73,9 +86,13 @@ fun GalleryPage(
     var filterApp by rememberSaveable { mutableStateOf<String?>(null) }
     var filterTag by rememberSaveable { mutableStateOf<String?>(null) }
     var filterLowValue by rememberSaveable { mutableStateOf(false) }
+    var timeFilter by rememberSaveable { mutableStateOf(TimeFilter.ALL) }
+    var clarityFilter by rememberSaveable { mutableStateOf(ClarityFilter.ALL) }
     var selectionMode by rememberSaveable { mutableStateOf(false) }
     var selectedIds by rememberSaveable { mutableStateOf(listOf<Long>()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showFilterPanel by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(true) }
 
     var pendingTrashIds by remember { mutableStateOf(listOf<Long>()) }
     var pendingDeleteIds by remember { mutableStateOf(listOf<Long>()) }
@@ -112,7 +129,8 @@ fun GalleryPage(
         exitSelection()
     }
 
-    val filtered = remember(screenshots, query, filterApp, filterTag, filterLowValue) {
+    val now = System.currentTimeMillis()
+    val filtered = remember(screenshots, query, filterApp, filterTag, filterLowValue, timeFilter, clarityFilter) {
         screenshots.filter { !it.inTrash }.filter { s ->
             val qOk = query.isBlank() ||
                 s.displayName.contains(query, ignoreCase = true) ||
@@ -124,13 +142,19 @@ fun GalleryPage(
                 s.stateTags.contains(filterTag) ||
                 s.visualTags.contains(filterTag)
             val lowOk = !filterLowValue || s.isLowValue
-            qOk && appOk && tagOk && lowOk
+            val timeOk = timeFilter.days == null || s.takenAt >= now - timeFilter.days * 86_400_000L
+            val clarityOk = when (clarityFilter) {
+                ClarityFilter.ALL -> true
+                ClarityFilter.CLEAR -> s.blurScore < 0 || s.blurScore < 40
+                ClarityFilter.BLUR -> s.blurScore >= 40
+            }
+            qOk && appOk && tagOk && lowOk && timeOk && clarityOk
         }
     }
 
     val topApps = remember(screenshots) {
         screenshots.groupingBy { it.sourceApp.ifBlank { "未知" } }.eachCount()
-            .entries.sortedByDescending { it.value }.take(6).map { it.key }
+            .entries.sortedByDescending { it.value }.take(8).map { it.key }
     }
 
     fun onTrashClick(shots: List<Screenshot>) {
@@ -163,12 +187,21 @@ fun GalleryPage(
         }
     }
 
+    val activeFilterCount = listOfNotNull(
+        filterApp?.let { "应用" },
+        filterTag?.let { "标签" },
+        if (filterLowValue) "建议清理" else null,
+        if (timeFilter != TimeFilter.ALL) timeFilter.label else null,
+        if (clarityFilter != ClarityFilter.ALL) clarityFilter.label else null,
+    ).size
+
     Column(modifier = Modifier.fillMaxSize().padding(padding)) {
         if (!selectionMode) {
             TopAppBar(
                 title = "图库",
                 largeTitle = "图库",
-                subtitle = "${filtered.size} 张截图${if (filterLowValue) " · 低价值筛选" else ""}",
+                subtitle = "${filtered.size} 张截图" +
+                    if (activeFilterCount > 0) " · ${activeFilterCount} 项筛选" else "",
                 actions = {
                     IconButton(onClick = {
                         scope.launch {
@@ -180,46 +213,19 @@ fun GalleryPage(
                     }
                 },
             )
-            // 搜索框
-            Box(
+            // 搜索框（Miuix InputField）
+            InputField(
+                query = query,
+                onQueryChange = { query = it },
+                onSearch = {},
+                expanded = searchExpanded,
+                onExpandedChange = { searchExpanded = it },
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .fillMaxWidth()
-                    .height(38.dp)
-                    .background(MiuixTheme.colorScheme.surfaceContainer, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = MiuixIcons.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    BasicTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.weight(1f),
-                        textStyle = TextStyle(
-                            color = MiuixTheme.colorScheme.onSurface,
-                            fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
-                        ),
-                        singleLine = true,
-                        decorationBox = { inner ->
-                            if (query.isEmpty()) {
-                                Text(
-                                    text = "搜索文件名 / 摘要 / 应用",
-                                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                    fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
-                                )
-                            }
-                            inner()
-                        },
-                    )
-                }
-            }
-            // 筛选 chips
+                    .fillMaxWidth(),
+                label = "搜索文件名 / 摘要 / 应用",
+            )
+            // 快捷筛选 chips + 打开筛选面板
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,10 +233,12 @@ fun GalleryPage(
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilterChip(text = "全部", selected = filterApp == null && filterTag == null && !filterLowValue) {
-                    filterApp = null; filterTag = null; filterLowValue = false
-                }
-                topApps.forEach { app ->
+                FilterChip(
+                    text = if (activeFilterCount > 0) "筛选（$activeFilterCount）" else "筛选",
+                    selected = activeFilterCount > 0,
+                    highlight = true,
+                ) { showFilterPanel = true }
+                topApps.take(4).forEach { app ->
                     FilterChip(text = app, selected = filterApp == app) {
                         filterApp = if (filterApp == app) null else app
                     }
@@ -286,7 +294,7 @@ fun GalleryPage(
         if (filtered.isEmpty()) {
             EmptyState(
                 title = if (loading) "正在扫描截图…" else "没有符合条件的截图",
-                subtitle = if (loading) "" else "试试调整筛选条件或下拉刷新",
+                subtitle = if (loading) "" else "试试调整筛选条件或重新扫描",
             )
         } else {
             LazyVerticalGrid(
@@ -298,6 +306,7 @@ fun GalleryPage(
             ) {
                 items(filtered, key = { it.id }) { shot ->
                     GridItem(
+                        modifier = Modifier.animateItem(),
                         shot = shot,
                         selectionMode = selectionMode,
                         selected = shot.id in selectedIds,
@@ -343,10 +352,158 @@ fun GalleryPage(
             },
         )
     }
+
+    if (showFilterPanel) {
+        FilterPanel(
+            show = showFilterPanel,
+            filterApp = filterApp,
+            filterTag = filterTag,
+            filterLowValue = filterLowValue,
+            timeFilter = timeFilter,
+            clarityFilter = clarityFilter,
+            topApps = topApps,
+            onDismiss = { showFilterPanel = false },
+            onApply = { app, tag, low, time, clarity ->
+                filterApp = app
+                filterTag = tag
+                filterLowValue = low
+                timeFilter = time
+                clarityFilter = clarity
+                showFilterPanel = false
+            },
+            onReset = {
+                filterApp = null
+                filterTag = null
+                filterLowValue = false
+                timeFilter = TimeFilter.ALL
+                clarityFilter = ClarityFilter.ALL
+            },
+        )
+    }
+}
+
+/** 组合筛选面板：来源应用 × 时间范围 × 清晰度 × 内容标签 × 低价值 */
+@Composable
+private fun FilterPanel(
+    show: Boolean,
+    filterApp: String?,
+    filterTag: String?,
+    filterLowValue: Boolean,
+    timeFilter: TimeFilter,
+    clarityFilter: ClarityFilter,
+    topApps: List<String>,
+    onDismiss: () -> Unit,
+    onApply: (String?, String?, Boolean, TimeFilter, ClarityFilter) -> Unit,
+    onReset: () -> Unit,
+) {
+    var app by remember { mutableStateOf(filterApp) }
+    var tag by remember { mutableStateOf(filterTag) }
+    var low by remember { mutableStateOf(filterLowValue) }
+    var time by remember { mutableStateOf(timeFilter) }
+    var clarity by remember { mutableStateOf(clarityFilter) }
+
+    OverlayDialog(
+        show = show,
+        title = "筛选",
+        summary = "组合条件筛选截图（同时满足）",
+        onDismissRequest = onDismiss,
+        content = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(380.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                FilterGroup(label = "来源应用") {
+                    ChipRow(options = listOf("全部") + topApps, selected = app) {
+                        app = if (it == "全部") null else it
+                    }
+                }
+                FilterGroup(label = "时间范围") {
+                    TimeFilter.entries.forEach { t ->
+                        FilterChip(text = t.label, selected = time == t) { time = t }
+                    }
+                }
+                FilterGroup(label = "清晰度") {
+                    ClarityFilter.entries.forEach { c ->
+                        FilterChip(text = c.label, selected = clarity == c) { clarity = c }
+                    }
+                }
+                FilterGroup(label = "内容标签") {
+                    ChipRow(
+                        options = listOf("全部", "财务", "凭证", "聊天", "游戏", "错误", "攻略", "网页"),
+                        selected = tag,
+                    ) {
+                        tag = if (it == "全部") null else it
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "仅显示建议清理",
+                        modifier = Modifier.weight(1f),
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    )
+                    Switch(checked = low, onCheckedChange = { low = it })
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(text = "重置", onClick = {
+                        app = null; tag = null; low = false
+                        time = TimeFilter.ALL; clarity = ClarityFilter.ALL
+                        onReset()
+                    }, modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    TextButton(
+                        text = "完成",
+                        onClick = { onApply(app, tag, low, time, clarity) },
+                        modifier = Modifier.weight(1f),
+                        colors = top.yukonga.miuix.kmp.basic.ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun FilterGroup(
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = label,
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+            fontWeight = FontWeight.Medium,
+        )
+        content()
+    }
+}
+
+@Composable
+private fun ChipRow(
+    options: List<String>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        options.forEach { opt ->
+            FilterChip(text = opt, selected = selected == opt || (selected == null && opt == "全部")) {
+                onSelect(opt)
+            }
+        }
+    }
 }
 
 @Composable
 private fun GridItem(
+    modifier: Modifier = Modifier,
     shot: Screenshot,
     selectionMode: Boolean,
     selected: Boolean,
@@ -354,7 +511,7 @@ private fun GridItem(
     onLongClick: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .aspectRatio(1f)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
